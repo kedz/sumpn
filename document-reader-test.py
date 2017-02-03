@@ -1,33 +1,7 @@
 from __future__ import division, print_function
 import sys
 import os
-
-def read_document(path):
-    with open(path, "r") as f:
-        data = f.read()
-        
-        url, article, ref, entities = data.split("\n\n")
-        sentences = list()
-        highlights = list()
-        entity_id2name = dict()
-
-        for sent in article.split("\n"):
-            sent, score = sent.split("\t\t\t")
-            tokens = sent.split(' ')
-            score = int(score)
-            sentences.append(
-                {"score": score, "tokens": tokens, "string": sent})
-
-        for sent in ref.split("\n"):
-            tokens = sent.split(' ')
-            highlights.append({"tokens": tokens, "string": sent})
-
-        for entity in entities.split("\n"):
-            label, value = entity.split(":", 1)
-            entity_id2name[label] = value
-
-    return {"sentences": sentences, "highlights": highlights,
-            "entities": entity_id2name, "url": url}
+from data_utils import read_document
 
 def test_read(data_path):
 
