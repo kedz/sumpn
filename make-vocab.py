@@ -8,48 +8,8 @@ import pandas as pd
 pd.set_option('display.width', 1000)
 import locale
 locale.setlocale(locale.LC_ALL, 'en_US.utf8')
-
-def preprocess_tokens(tokens, doc):
-
-    pp_tokens = list()
-    for token in tokens:
-        nes = doc["entities"].get(token, None)
-        if nes is not None:
-            for st in nes.split():
-                pp_tokens.append("__ENTITY__")
-        else:        
-            token = re.sub(r"^\**(.*?)\**$", r"\1", token).lower()
-            token = re.sub(r"\d", r"D", token)
-            pp_tokens.append(token)
-
-    return pp_tokens
-
-def read_document(path):
-    with open(path, "r") as f:
-        data = f.read()
-        
-        url, article, ref, entities = data.split("\n\n")
-        sentences = list()
-        highlights = list()
-        entity_id2name = dict()
-
-        for sent in article.split("\n"):
-            sent, score = sent.split("\t\t\t")
-            tokens = sent.split(' ')
-            score = int(score)
-            sentences.append(
-                {"score": score, "tokens": tokens, "string": sent})
-
-        for sent in ref.split("\n"):
-            tokens = sent.split(' ')
-            highlights.append({"tokens": tokens, "string": sent})
-
-        for entity in entities.split("\n"):
-            label, value = entity.split(":", 1)
-            entity_id2name[label] = value
-
-    return {"sentences": sentences, "highlights": highlights,
-            "entities": entity_id2name, "url": url}
+from unidecode import unidecode
+from data_utils import read_document, preprocess_tokens
 
 def get_token_counts(data_path, max_sent, max_highlight):
 
@@ -67,11 +27,11 @@ def get_token_counts(data_path, max_sent, max_highlight):
         doc = read_document(doc_path)
 
         for sent in doc["sentences"][:max_sent]:
-            tokens = preprocess_tokens(sent["tokens"], doc)
+            tokens = preprocess_tokens(sent["tokens"], doc["entities"])
             for token in tokens: counts_inp[token] += 1
 
         for sent in doc["highlights"][:max_highlight]:
-            tokens = preprocess_tokens(sent["tokens"], doc)
+            tokens = preprocess_tokens(sent["tokens"], doc["entities"])
             for token in tokens: counts_hl[token] += 1
 
     return counts_inp, counts_hl
