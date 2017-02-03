@@ -126,4 +126,6 @@ stopwords = set(["a", "about", "above", "across", "after", "afterwards",
     "your", "yours", "yourself", "yourselves", ",", ".", "\'", "\"", ";", ":",
     "?", "'s", "'ve", "'d", "'ll", "'re", "n't", "-", "_", 'did'])
 
-
+def read_vocab(path):
+    with open(path, "r") as f:
+        return set([line.strip() for line in f])
