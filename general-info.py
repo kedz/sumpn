@@ -5,49 +5,12 @@ import re
 import numpy as np
 import pandas as pd
 pd.set_option('display.width', 1000)
-
-def preprocess_tokens(tokens, doc):
-
-    pp_tokens = list()
-    for token in tokens:
-        token = doc["entities"].get(token, token) 
-        token = re.sub(r"^\**(.*?)\**$", r"\1", token).lower()
-        for st in token.split():
-            pp_tokens.append(st)
-    return pp_tokens
-
-def read_document(path):
-    with open(path, "r") as f:
-        data = f.read()
-        
-        url, article, ref, entities = data.split("\n\n")
-        sentences = list()
-        highlights = list()
-        entity_id2name = dict()
-
-        for sent in article.split("\n"):
-            sent, score = sent.split("\t\t\t")
-            tokens = sent.split(' ')
-            score = int(score)
-            sentences.append(
-                {"score": score, "tokens": tokens, "string": sent})
-
-        for sent in ref.split("\n"):
-            tokens = sent.split(' ')
-            highlights.append({"tokens": tokens, "string": sent})
-
-        for entity in entities.split("\n"):
-            label, value = entity.split(":", 1)
-            entity_id2name[label] = value
-
-    return {"sentences": sentences, "highlights": highlights,
-            "entities": entity_id2name, "url": url}
-
+from data_utils import read_document, replace_entities
 
 def collect_split_stats(data_path):
     
     doc_paths = [os.path.join(data_path, file) 
-            for file in os.listdir(data_path)]
+                 for file in os.listdir(data_path)]
 
     num_docs = len(doc_paths)
 
@@ -82,10 +45,10 @@ def collect_split_stats(data_path):
         doc_i_len_tokens_trunc = 0 
 
         for s, sent in enumerate(doc["sentences"]):
-            tokens = preprocess_tokens(sent["tokens"], doc)
+            tokens = replace_entities(sent["tokens"], doc["entities"])
             num_input_tokens.append(len(tokens))
             doc_i_len_tokens += len(tokens)
-            if s < 30:
+            if s < 25:
                 doc_i_len_tokens_trunc += len(tokens)
 
         doc_len_tokens.append(doc_i_len_tokens)
@@ -95,7 +58,7 @@ def collect_split_stats(data_path):
         hl_tokens = list()
         hl_tokens_flat = list()
         for highlight in doc["highlights"]:
-            tokens = preprocess_tokens(highlight["tokens"], doc)
+            tokens = replace_entities(highlight["tokens"], doc["entities"])
             num_highlight_tokens.append(len(tokens))
             hl_tokens.append(tokens)
             hl_tokens_flat.extend(tokens)
@@ -128,13 +91,15 @@ def collect_split_stats(data_path):
 
     def make_data_row(data):
 
-        row_data = [np.mean(data), np.median(data), np.std(data)]
+        row_data = [np.mean(data), np.median(data), 
+                    np.std(data), np.max(data)]
         row_data.extend(np.percentile(data, percentiles))
         return row_data
          
     df_data = list()
     df_data.append(make_data_row(num_inputs))
     df_data.append(make_data_row(doc_len_tokens))
+    df_data.append(make_data_row(doc_len_tokens_trunc))
     df_data.append(make_data_row(num_input_tokens))
 
     df_data.append(make_data_row(num_highlights))
@@ -150,10 +115,11 @@ def collect_split_stats(data_path):
 
 
     columns = pd.MultiIndex.from_tuples(
-        [("", "mean"), ("", "median"), ("", "std")] + \
+        [("", "mean"), ("", "median"), ("", "std"), ("", "max")] + \
         [("Percentile", "{}th".format(p)) for p in percentiles])
 
-    index = ["inp. len. (sents.)", "inp. len. (tok.)", "inp. sent. len. (toks.)",  
+    index = ["inp. len. (sents.)", "inp. len. (tok.)",
+             "inp. len. trunc25sent (tok.)", "inp. sent. len. (toks.)",  
              "hl. len. (sents.)", "hl. len. (tok.)", "hl. sent. len. (toks.)",
              "ref[:75] len. (sents.)", "ref[:75] len. (tok.)",
              "ref[:250] len. (sents.)", "ref[:250] len. (tok.)",
@@ -164,10 +130,11 @@ def collect_split_stats(data_path):
     df_str_lines = str(df).split("\n")
 
     print("\n".join(df_str_lines[:2]) + "\n")
-    for i in xrange(2, 8, 3):
-        print("\n".join(df_str_lines[i:i+3]) + "\n")
-    for i in xrange(8, len(df_str_lines), 2):
-        print("\n".join(df_str_lines[i:i+2]) + "\n")
+    print("\n".join(df_str_lines[2:6]) + "\n")
+    print("\n".join(df_str_lines[6:9]) + "\n")
+    print("\n".join(df_str_lines[9:11]) + "\n")
+    print("\n".join(df_str_lines[11:13]) + "\n")
+    print("\n".join(df_str_lines[13:15]) + "\n")
 
 
 def main():
