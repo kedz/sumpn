@@ -13,7 +13,7 @@ def build_summary(doc_path, align_path, summary_path):
     with open(align_path, "r") as f:
         alignments = yaml.load(f)
         for backbone, support, ta in alignments:
-            if backbone and backbone not in used:
+            if backbone != None and backbone not in used:
                 backbones.append(backbone)
                 used.add(backbone)
 
