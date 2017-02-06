@@ -124,7 +124,8 @@ stopwords = set(["a", "about", "above", "across", "after", "afterwards",
     "whether", "which", "while", "whither", "who", "whoever", "whole", "whom",
     "whose", "why", "will", "with", "within", "without", "would", "yet", "you",
     "your", "yours", "yourself", "yourselves", ",", ".", "\'", "\"", ";", ":",
-    "?", "'s", "'ve", "'d", "'ll", "'re", "n't", "-", "_", 'did'])
+    "?", "'s", "'ve", "'d", "'ll", "'re", "n't", "-", "_", 'did', "(", ")",
+    "[", "]", "{", "}"])
 
 def read_vocab(path):
     with open(path, "r") as f:
