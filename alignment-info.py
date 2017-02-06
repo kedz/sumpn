@@ -119,7 +119,7 @@ def main():
         help="Location to write output vocab.")
 
     args = parser.parse_args()
-    vocab_in = read_vocab(args.input_vocab)
+    #vocab_in = read_vocab(args.input_vocab)
     vocab_out = read_vocab(args.output_vocab) 
 
     for split in ["training", "validation", "test"]:
