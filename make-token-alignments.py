@@ -10,7 +10,7 @@ from itertools import product
 from data_utils import read_document, replace_entities, get_document_paths
 from data_utils import stopwords, unk_id, sw_id
 import yaml
-
+from multiprocessing import Pool
 
 def init_doc_meta(doc, max_sent):
 
@@ -55,7 +55,7 @@ def find_sentence_support(highlight_token_set, doc_token_sets):
     sents.sort()
     return sents
 
-def find_token_alignments(source_tokens, source_token_ids, highlight_tokens):
+def find_token_alignments(source_tokens, source_token_ids, highlight_tokens, quotes):
 
     token2pos = defaultdict(list)
 
@@ -65,11 +65,14 @@ def find_token_alignments(source_tokens, source_token_ids, highlight_tokens):
 
     A = defaultdict(dict)
     for i, token in enumerate(highlight_tokens):
-        occurences = token2pos.get(
-            token, [sw_id] if token in stopwords else [unk_id])
+        if i in quotes:
+            A[(1,i)][tuple([quotes[i]])] = 0   
+        else:
+            occurences = token2pos.get(
+                token, [sw_id] if token in stopwords else [unk_id])
 
-        for j in occurences:
-            A[(1,i)][tuple([j])] = 0
+            for j in occurences:
+                A[(1,i)][tuple([j])] = 0
     
     for l in xrange(2, len(highlight_tokens) + 1): #-- Length of span
         for s in xrange(len(highlight_tokens)-l+1): # -- Start of span
@@ -136,21 +139,69 @@ def fill_stopword_alignments(source_tokens, source_token_ids, highlight_tokens,
             elif token_alignments[i] != unk_id: 
                 last = i
 
+
+def find_quotes(highlight_tokens, sent2tokens, sent2token_ids):
+
+    support = list()
+    hl_string = " ".join(highlight_tokens)
+    for s, tokens in enumerate(sent2tokens):
+        tstr = " ".join(tokens) 
+        index = hl_string.find(tstr)
+        if index > -1:
+            #print "!!!!!!!!!!!!!!!!!!!!!"
+            #print hl_string[:index]
+            #print hl_string[index:index + len(tstr)]
+            #print hl_string[index + len(tstr):]
+            #print sent2token_ids[s]
+            hl_string = "{} {} {}".format(
+                hl_string[:index],
+                " ".join("__{}__".format(i) for i in sent2token_ids[s]),
+                hl_string[index + len(tstr):])
+            support.append(s)
+
+    quoted_tokens = hl_string.strip().split()
+    if len(quoted_tokens) != len(highlight_tokens):
+        raise Exception(
+            "hl_string has wrong number of tokens!: {}".format(hl_string))
+
+    quotes = dict()
+    for i, token in enumerate(quoted_tokens):
+        m = re.search(r"__(\d+)__", token)
+        if m:
+            quotes[i] = int(m.group(1))
+    return quotes, support
+
+
 def find_highlight_alignments(highlight, doc, meta):
     
     id2token, id2sent, sent2tokens, sent2token_ids, doc_token_sets = meta
 
     highlight_tokens = replace_entities(highlight["tokens"], doc["entities"])
     highlight_token_set = set(highlight_tokens)
-    print len(highlight_tokens)
+    #print len(highlight_tokens)
 
+
+    #print "###\n"
+    quotes, quote_support = find_quotes(highlight_tokens, sent2tokens, sent2token_ids)
+    for s in quote_support:
+        highlight_token_set -= doc_token_sets[s]
     support = find_sentence_support(highlight_token_set, doc_token_sets)
+    #print quote_support, support
+   
+    support.extend(quote_support) 
+    support.sort()
+
+    #for s in support:
+    #    print " ".join(sent2tokens[s])
+
+    #print
+    #print " ".join(highlight_tokens)
 
     src_tokens = [token for sent in support for token in sent2tokens[sent]] 
     src_ids = [id for sent in support for id in sent2token_ids[sent]]
 
     raw_token_aligments = find_token_alignments(
-            src_tokens, src_ids, highlight_tokens)
+            src_tokens, src_ids, highlight_tokens, quotes)
     token_alignments = rescore_alignments(raw_token_aligments, id2sent)
 
     fill_stopword_alignments(src_tokens, src_ids, highlight_tokens,
@@ -161,6 +212,8 @@ def find_highlight_alignments(highlight, doc, meta):
         if a >= 0: sent_counts[id2sent[a]] += 1
 
     sent_counts = sent_counts.items()
+
+    #print token_alignments
 
     if len(sent_counts) > 0:
 
@@ -177,12 +230,17 @@ def find_highlight_alignments(highlight, doc, meta):
     else:
         return None, list(), token_alignments
 
-def process_document(document_path, output_dir, max_input, max_highlight):
+def process_document(args): 
+    document_path, output_dir, max_input, max_highlight, no_overwrite = args
     output_path = os.path.join(output_dir, os.path.split(document_path)[1])
+    if no_overwrite is True and os.path.exists(output_path):
+        return
+    print document_path
+
     doc = read_document(document_path)
 
     meta = init_doc_meta(doc, max_input)
-    print document_path 
+    #print document_path 
     data = list()
     for highlight in doc["highlights"][:max_highlight]:
         backbone, support, alignments = find_highlight_alignments(
@@ -217,6 +275,7 @@ def main():
         help="Maximum number of sentences to read from input.")
     parser.add_argument('--max-highlight', required=True, type=int,
         help="Maximum number of highlights to read.")
+    parser.add_argument('--no-overwrite', required=False, action="store_true")
 
     args = parser.parse_args()
      
@@ -234,17 +293,27 @@ def main():
     random.seed(args.seed)
 
     document_paths = get_document_paths(input_path, args.samples, args.random)
+    document_paths.reverse()
+
+    args = [(dp, args.output, args.max_input_sent, 
+             args.max_highlight, args.no_overwrite) 
+            for dp in document_paths]
     
+    pool = Pool(processes=4)
     n_docs = len(document_paths)
-    for i, document_path in enumerate(document_paths, 1):
-        if i < 14835:
-            continue
+    #for arg in args:
+    #    process_document(arg)
+    for i, d in enumerate(pool.imap_unordered(process_document, args), 1):
+    #for i, d in enumerate(results, 1):
+    #    if i < 14835:
+    #        continue
         #print document_path
         sys.stdout.write("\r {:d} / {:d} ( {:7.4f}% ) ".format(
             i, n_docs, 100 * i / n_docs))
         sys.stdout.flush()
-        process_document(document_path, args.output, 
-            args.max_input_sent, args.max_highlight)
+    #    pass
+        #process_document(document_path, args.output, 
+        #    args.max_input_sent, args.max_highlight)
     print
  
 
