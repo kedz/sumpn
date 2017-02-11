@@ -130,3 +130,17 @@ stopwords = set(["a", "about", "above", "across", "after", "afterwards",
 def read_vocab(path):
     with open(path, "r") as f:
         return set([line.strip() for line in f])
+
+def read_vocab_ids(path):
+    
+    with open(path, "r") as f:
+        word_list = [line.strip() for line in f]
+    word_list = ["<S>", "<D>", "<E>", "<B>", "__ENTITY__", "__UNK__"] + word_list
+    id2vocab = [None] * len(word_list)
+    vocab2id = dict()
+    
+    for i, w in enumerate(word_list):
+        id2vocab[i] = w
+        vocab2id[w] = i
+
+    return id2vocab, vocab2id
