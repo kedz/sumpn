@@ -1,0 +1,325 @@
+<!doctype html>
+<head>
+ <title>Model Viewer - Example {{example}}</title>
+ <link rel="stylesheet" type="text/css" href="/static/styles/reset.css">
+ <link rel="stylesheet" type="text/css" href="/static/styles/model-viewer.css">
+</head>
+<body>
+
+    <div id="counter-wrapper">0</div>
+    <div id="output-wrapper">output goes here</div>
+    <div id="plates"></div>
+
+<script>
+
+    var hsv2rgb = function(h, s, v) {
+      // adapted from http://schinckel.net/2012/01/10/hsv-to-rgb-in-javascript/
+      var rgb, i, data = [];
+      if (s === 0) {
+        rgb = [v,v,v];
+      } else {
+        h = h / 60;
+        i = Math.floor(h);
+        data = [v*(1-s), v*(1-s*(h-i)), v*(1-s*(1-(h-i)))];
+        switch(i) {
+          case 0:
+            rgb = [v, data[2], data[0]];
+            break;
+          case 1:
+            rgb = [data[1], v, data[0]];
+            break;
+          case 2:
+            rgb = [data[0], v, data[2]];
+            break;
+          case 3:
+            rgb = [data[0], data[1], v];
+            break;
+          case 4:
+            rgb = [data[2], data[0], v];
+            break;
+          default:
+            rgb = [v, data[0], data[1]];
+            break;
+        }
+      }
+      return '#' + rgb.map(function(x){
+        return ("0" + Math.round(x*255).toString(16)).slice(-2);
+      }).join('');
+    };
+
+
+    var prob2rgb = function(prob) {
+        var h = Math.floor((1 - 1 - prob) * 120 / 1);
+        var s = Math.abs(1-prob - .5)/ .5;
+        var v = 1;
+        return hsv2rgb(h,s,v);
+    };
+
+
+
+    var plates_data = {{plates|safe}};
+    var vocab = {"input":  {{input_vocab|safe}}, 
+                 "output": {{output_vocab|safe}}
+                };
+
+    function createPlate(data) {
+        
+        //<div class="plate-container" id="plate-container-"+data['name']>
+        var plate_div = document.createElement("div");
+        plate_div.id = "plate-container-" + data["name"];
+        plate_div.className = "plate-container";
+        
+        //  <div class="plate-label" id="plate-label-"+data['name']>
+        var label_div = document.createElement("div");
+        label_div.id = "plate-label-" + data["name"];
+        label_div.className = "plate-label";
+        //      <h2>data['name']</h2>
+        var label_text = document.createElement("h2");
+        label_text.textContent = data['name'];
+        label_div.appendChild(label_text);
+        plate_div.appendChild(label_div);
+        //  </div> <!-- end plate-label !-->
+
+        //  <div class="plate-elements" id="plate-elements-"+data['name']>
+        var plate_elements = document.createElement("div");
+        plate_elements.id = "plate-elements-" + data["name"];
+        plate_elements.className = "plate-elements";
+
+        var num_steps = data.steps.length;
+        var num_items = data.steps[0].length;
+        var plate_object = {"bars": [], "tokens": []};
+
+        for (var item=0; item < num_items; item++) {
+            //  <div class="plate-element">
+            var element_div = document.createElement("div");
+            element_div.className = "plate-element"
+            element_div.id = data["name"] + "-plate-element-" + item;
+            //      <div class="element-token">
+            element_token = document.createElement("div");
+            element_token.className = "element-token";
+            var id = data.steps[0][item]["id"];
+            var prob = Math.exp(data.steps[0][item]["ll"]);
+
+            element_token.textContent = vocab[data["vocab"]][id - 1];
+            
+            element_div.appendChild(element_token);
+            plate_object.tokens.push(element_token);
+            //      </div> <!-- end element-token !-->
+            //      <div class="bar-wrapper">
+            var bar_wrapper = document.createElement("div");
+            bar_wrapper.className = "bar-wrapper";
+            
+            //          <div class="bar"> 
+            var bar = document.createElement("div");
+            bar.className = "bar";
+            bar.style.height = 100 * prob + "%";
+            bar_wrapper.appendChild(bar);
+            plate_object.bars.push(bar);
+            //          </div> <!-- end bar !-->
+
+            element_div.appendChild(bar_wrapper);
+            //      </div> <!-- end bar-wrapper !-->
+
+            //      </div class="spacer">
+            var spacer = document.createElement("div");
+            spacer.className = "spacer";
+            element_div.appendChild(spacer);
+
+            plate_elements.appendChild(element_div);
+            //  </div> <!-- end plate-element !-->
+        }
+
+        //  </div class="spacer">
+        var spacer = document.createElement("div");
+        spacer.className = "spacer";
+        plate_elements.appendChild(spacer);
+
+        plate_div.appendChild(plate_elements);
+        //  </div> <!-- end plate-elements --!>
+
+        document.getElementById("plates").appendChild(plate_div);
+        return plate_object;
+    };
+
+
+    function createOutputStep(index, token_data, sources) {
+        var div_step = document.createElement("div");
+        div_step.className = "output-step-item";
+        if (index >= token_data.length) {
+            div_step.textContent = "N/A";
+            div_step.style.background = prob2rgb(0);
+
+        } else {
+
+            var id = token_data[index]["id"];
+            var src = token_data[index]["source"];
+            var prob = Math.exp(token_data[index]["ll"]);
+            div_step.style.background = prob2rgb(prob);
+
+            if (src == "vocab") {
+                div_step.textContent = vocab["output"][id - 1];
+            } else {
+                var token = sources[src].tokens[id - 1].textContent;
+                div_step.textContent = token;
+            }
+
+        }   
+
+        return div_step;        
+    };
+
+    function createOutputFrame(data, sources) {
+        var output_wrapper = document.getElementById("output-wrapper");
+        var max_pred_steps = data["predicted_steps"].length;
+        var max_gold_steps = data["gold_steps"].length;
+        var max_steps = Math.max(max_pred_steps, max_gold_steps);
+        var all_steps = [];
+
+        //  <div id="output-wrapper">
+        for (var step=0; step < max_steps; step++) {
+            //  <div class="output-step" id="output-step-"+step>
+            var output_step = document.createElement("div");
+            output_step.className = "output-step";
+            output_step.id = "output-step-"+step;
+            
+            var gold_out_step = createOutputStep(
+                step, data["predicted_steps"], sources);
+            var pred_out_step = createOutputStep(
+                step, data["gold_steps"], sources);
+            var spacer = document.createElement("div");
+            spacer.className = "spacer";
+            output_step.appendChild(gold_out_step);
+            output_step.appendChild(pred_out_step);
+            output_step.appendChild(spacer);
+            
+            
+
+
+
+            //  </div> <!-- end output-step !-->
+            output_wrapper.appendChild(output_step);
+            all_steps.push(output_step);
+        }
+
+        return all_steps;
+    }
+
+    function updatePlate(plate_object, plate_data, step) {
+        var num_items = plate_object.bars.length;
+        
+        for (var item=0; item < num_items; item++) {
+            var id = plate_data.steps[step][item]["id"];
+            var token = vocab[plate_data["vocab"]][id - 1];
+            var prob = Math.exp(plate_data.steps[step][item]["ll"]);
+            plate_object.bars[item].style.height = 100 * prob + "%";
+            plate_object.tokens[item].textContent = token;
+        }
+
+    };
+
+    function updateOutputFrame(ouput_steps, step) {
+        for (var i=0; i < output_steps.length; i++) {
+            if (i == step) {
+                output_steps[i].style.border = "1px solid black";
+            } else {
+                output_steps[i].style.border = "1px solid white";
+            }
+        }
+    }
+
+    function updateInputHighlight(output_data, plate_objects, step, 
+            vocab_plate) {
+        var vocab_plate_idx = null;
+
+
+
+
+        var l = document.getElementsByClassName("plate-element");
+        for (var i=0; i < l.length; i++) {
+            l[i].style.background = "white";
+        }
+        
+        if (step < output_data["predicted_steps"].length) {
+            var pred_idx = output_data["predicted_steps"][step]["id"] - 1;
+            var pred_src = output_data["predicted_steps"][step]["source"];
+            if (pred_src != "vocab") { 
+                var id = pred_src + "-plate-element-" + pred_idx;
+                var e = document.getElementById(id);
+                if (e) {
+                    e.style.background = "rgba(255,0,0,.5)";
+                }
+            } else {
+                var token = vocab["output"][pred_idx];
+                for (var v=0; v < vocab_plate.tokens.length; v++) {
+                    if (token == vocab_plate.tokens[v].textContent) {
+                        vocab_plate.tokens[v].parentElement.style.background =
+                            "rgba(255,0, 0,.5)";
+
+                    }
+                }
+            }
+        }
+
+        if (step < output_data["gold_steps"].length) {
+            var gold_idx = output_data["gold_steps"][step]["id"] - 1;
+            var gold_src = output_data["gold_steps"][step]["source"];
+            if (gold_src != "vocab") { 
+                var id = gold_src + "-plate-element-" + gold_idx;
+                var e = document.getElementById(id);
+                if (e) {
+                    e.style.background = "rgba(0,255,0,.5)";
+                }
+            } else {
+                var token = vocab["output"][gold_idx];
+                for (var v=0; v < vocab_plate.tokens.length; v++) {
+                    if (token == vocab_plate.tokens[v].textContent) {
+                        vocab_plate.tokens[v].parentElement.style.background =
+                            "rgba(0,255,0,.5)";
+
+                    }
+                }
+            }
+        }
+
+    }
+
+
+    var source2plates = {}
+    var plate_objects = [];
+    for (var i=0; i < plates_data.length; i++) {
+        var po = createPlate(plates_data[i]);
+        plate_objects.push(po);
+        source2plates[plates_data[i]["name"]] = po;
+    }
+
+    var vocab_plate = source2plates["vocab-prediction-layer"];
+
+    var output_data = {{output|safe}};
+
+    var output_steps = createOutputFrame(output_data, source2plates);
+
+
+
+
+
+    var step = -1;
+    var max_steps = {{max_steps}};
+
+    setInterval(function() {
+        step = step + 1;
+        if (step >= max_steps) {
+            step = 0;
+        }
+        document.getElementById("counter-wrapper").textContent = step;
+        for (var i=0; i < plate_objects.length; i++) {
+            updatePlate(plate_objects[i], plates_data[i], step);
+        }
+        updateOutputFrame(output_steps, step);
+        updateInputHighlight(output_data, plate_objects, step, vocab_plate);
+            }, 1000);
+
+
+
+</script>
+
+</body>
