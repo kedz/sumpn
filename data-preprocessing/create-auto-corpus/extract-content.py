@@ -12,12 +12,9 @@ pattern = r'<p class="mol-para-with-font"><font>(.*?)</font>'
 list_body_patt = r'<ul class="mol-bullets-with-font">(.*?)</ul>'
 list_el_patt = r'<li[^>]*?>(.*?)</li>'
 
-
-#lis<ul class="article-summary news"><li><span>
 list_body_patt2 = r"<ul>(.*)</ul>"
 list_body_patt3 = r'<ul class="article-summary[^>]*?">(.*?)</ul>'
 list_el_patt2 = r"<li[^>]*?>(.*?)</li>"
-#<ul><li><span>
 
 input_patt2 = r"<p><font>(.*?)</font>(<br>)?</p>"
 
@@ -25,10 +22,6 @@ h = HTMLParser()
 a_patt = r"<a[^>]*>(.*?)</a>"
 html_patt = r"<[^>]*?>"
 
-bad_filenames = set([
-    "003c80858d89ec2dcf226973061e9e24a4dbcab6.summary",
-    "004f2330b86b71d44b5a809e6eab6c49f90ea928.summary"
-    ])
 
 def get_highlights(content):
     list_body = re.search(list_body_patt, content, flags=re.DOTALL)
@@ -86,14 +79,11 @@ def get_article_grafs(content):
 
     return grafs
 
-def extract_content(input_path, output_path, error_dir):
+def extract_content(input_path, output_path):
 
     output_dir = os.path.dirname(output_path)
     if output_dir != '' and not os.path.exists(output_dir):
         os.makedirs(output_dir)
-
-    if error_dir != '' and not os.path.exists(error_dir):
-        os.makedirs(error_dir)
 
     highlight_lengths = list()
     graf_lengths = list()
@@ -102,7 +92,7 @@ def extract_content(input_path, output_path, error_dir):
 
     with open(input_path, "r") as f, open(output_path, "w") as o:
         data = list()
-        for line in f:
+        for l, line in enumerate(f):
             try:
                 filename, url, title, content = line.strip().split("\t")
             except ValueError, e:
@@ -116,8 +106,6 @@ def extract_content(input_path, output_path, error_dir):
             sys.stdout.write("{:6.3f}%     \r".format(100 * i / n_data))
             sys.stdout.flush()
 
-            if filename in bad_filenames: continue
-
             # unlikely but better to be safe...
             content = content.replace("|", "----") 
             #content = #content.replace("__NL__", "\n").replace("__TAB__", "\t")
@@ -130,10 +118,6 @@ def extract_content(input_path, output_path, error_dir):
             graf_byte_lengths.append(sum([len(g) for g in grafs]))
 
             if len(highlights) == 0 or len(grafs) == 0: 
-                with open(os.path.join(error_dir, filename), "w") as f:
-                    f.write(content.replace(
-                        "__NL__", "\n").replace("__TAB__", "\t"))
-
                 continue
 
             output_line = "{}\t{}\t{}\t{}\t{}\n".format(
@@ -165,11 +149,9 @@ def main():
         help="Location of content tsv file.")
     parser.add_argument('--output', required=True,
         help="Location to write output data.")
-    parser.add_argument('--error-dir', required=True,
-        help="Location to write files that we failed to extract.")
 
     args = parser.parse_args()
-    extract_content(args.input, args.output, args.error_dir)
+    extract_content(args.input, args.output)
 
 if __name__ == "__main__":
     main()
