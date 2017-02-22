@@ -74,8 +74,6 @@ if __name__ == "__main__":
         doc_tokens = [[t.token for t in s] for s in doc.sentences]
         highlights = [[t.token for t in s] for s in doc.highlights]
 
-        alignments = [a for _, _, a in bb_sp_a] 
-
         i = 0
         doc_token_ids = list()
         for tokens in doc_tokens:
@@ -84,11 +82,23 @@ if __name__ == "__main__":
                 token_ids.append(i)
                 i += 1
             doc_token_ids.append(token_ids)
+        
+        backbone_ids = list()
+        alignments = list()
+        
+        for backbone, support, alignment in bb_sp_a:
+            if backbone != None:
+                backbone_ids.append(doc_token_ids[backbone])
+            else:
+                backbone_ids.append(list())
+            alignments.append(alignment)
 
         return render_template("alignment-viewer.html",
             doc_tokens=doc_tokens,
             highlights=highlights,
-            alignments=alignments
+            alignments=alignments,
+            alignments_json=json.dumps(alignments),
+            backbone_ids=json.dumps(backbone_ids)
             )
 
 
