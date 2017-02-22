@@ -19,7 +19,6 @@ def load_documents(documents_path):
             doc = read_line_document(line)
             name2doc[doc.filename] = doc
             docs.append(doc)
-            if len(docs) == 10: break
     print("") 
     return docs, name2doc
 
@@ -31,7 +30,6 @@ def load_alignments(alignments_path):
             sys.stdout.write("{:10d} alingments read.\r".format(i))
             sys.stdout.flush()
             name2alignments[filename] = alignment
-            if len(name2alignments) == 10: break
     print("") 
     return name2alignments
 
@@ -102,4 +100,4 @@ if __name__ == "__main__":
             )
 
 
-    app.run(host="0.0.0.0", port=8080, debug=True)
+    app.run(host="0.0.0.0", port=8080, debug=False)
