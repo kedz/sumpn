@@ -69,8 +69,15 @@ if __name__ == "__main__":
         example = int(example)
 
         doc = app.config["DOCS"][example]
-        hls = [" ".join(t.token for t in h) for h in doc.highlights]
-        return "<br>".join(hls)
+        doc_tokens = [[t.token for t in s] for s in doc.sentences]
+        highlights = [[t.token for t in s] for s in doc.highlights]
+
+        
+
+        return rended_template("alignment-viewer.html",
+            doc_tokens=doc_tokens,
+            highlights=highlights
+            )
 
 
     app.run(host="0.0.0.0", port=8080, debug=True)
