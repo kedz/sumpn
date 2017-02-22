@@ -60,6 +60,7 @@ if __name__ == "__main__":
     name2alignments = load_alignments(args.alignments)
     docs = check_alignments(docs, name2alignments)
 
+
     app = Flask(__name__)
     app.config["DOCS"] = docs
     app.config["ALIGNMENTS"] = name2alignments
@@ -69,14 +70,25 @@ if __name__ == "__main__":
         example = int(example)
 
         doc = app.config["DOCS"][example]
+        bb_sp_a = app.config["ALIGNMENTS"][doc.filename]
         doc_tokens = [[t.token for t in s] for s in doc.sentences]
         highlights = [[t.token for t in s] for s in doc.highlights]
 
-        
+        alignments = [a for _, _, a in bb_sp_a] 
 
-        return rended_template("alignment-viewer.html",
+        i = 0
+        doc_token_ids = list()
+        for tokens in doc_tokens:
+            token_ids = list()
+            for token in tokens:
+                token_ids.append(i)
+                i += 1
+            doc_token_ids.append(token_ids)
+
+        return render_template("alignment-viewer.html",
             doc_tokens=doc_tokens,
-            highlights=highlights
+            highlights=highlights,
+            alignments=alignments
             )
 
 
