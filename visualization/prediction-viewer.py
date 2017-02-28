@@ -1,33 +1,37 @@
 from __future__ import print_function
 
+import yaml
 import json
 from flask import Flask, render_template
 
-from data_utils import read_vocab_ids
+def read_vocab(path):
+
+    with open(path, "r") as f:
+        return [line.strip() for line in f]
+
+
 
 if __name__ == "__main__":
 
     import argparse
     parser = argparse.ArgumentParser(
         description='Visualize model predictions.')
-    parser.add_argument('--json', required=True, help="Model json data.")
+    parser.add_argument('--data', required=True, help="Model json data.")
     parser.add_argument('--input-vocab', required=True, help="Input vocab.")
     parser.add_argument('--output-vocab', required=True, help="Output vocab.")
 
     args = parser.parse_args()
     
-    with open(args.json, "r") as f:
-        model_data = json.load(f)
+    with open(args.data, "r") as f:
+        model_data = yaml.load(f)
 
-    id2vocab_in, vocab2id_in = read_vocab_ids(args.input_vocab)
-    id2vocab_out, vocab2id_out = read_vocab_ids(args.output_vocab)
+    id2vocab_in = read_vocab(args.input_vocab)
+    id2vocab_out = read_vocab(args.output_vocab)
 
     app = Flask(__name__)
     app.config["MODEL_DATA"] = model_data
-    app.config["INPUT_VOCAB"] = (id2vocab_in, vocab2id_in)
-    app.config["OUTPUT_VOCAB"] = (id2vocab_out, vocab2id_out)
-
-    #app.config["ALIGN_PATHS"] = align_paths
+    app.config["INPUT_VOCAB"] = id2vocab_in
+    app.config["OUTPUT_VOCAB"] = id2vocab_out
 
     @app.route('/example/<example>')
     def display_example(example):
@@ -37,8 +41,8 @@ if __name__ == "__main__":
         data = app.config["MODEL_DATA"][example]
         max_steps = len(data["plates"][0]["steps"])
 
-        id2vocab_in, vocab2id_in = app.config["INPUT_VOCAB"]
-        id2vocab_out, vocab2id_out = app.config["OUTPUT_VOCAB"]
+        id2vocab_in = app.config["INPUT_VOCAB"]
+        id2vocab_out = app.config["OUTPUT_VOCAB"]
 
         return render_template("model-viewer.html", 
             example=example,
@@ -50,4 +54,4 @@ if __name__ == "__main__":
             #backbone_prediction_plate=json.dumps(bb_pred_plate),
             #support_prediction_plate=json.dumps(sp_pred_plate))
 
-    app.run(port=8080, debug=True)
+    app.run(host="0.0.0.0", port=8080, debug=True)
