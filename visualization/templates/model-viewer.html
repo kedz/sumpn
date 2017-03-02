@@ -1,16 +1,26 @@
 <!doctype html>
 <head>
+<meta charset="UTF-8">
  <title>Model Viewer - Example {{example}}</title>
  <link rel="stylesheet" type="text/css" href="/static/styles/reset.css">
  <link rel="stylesheet" type="text/css" href="/static/styles/model-viewer.css">
 </head>
 <body>
 
-    <div id="counter-wrapper">0</div>
     <div id="output-wrapper"><h1>Predicted Output | Gold output</h1></div>
-    <div id="controller-wrapper">
-        <div>Step: </div>
-        <div>&#9208;</div>
+    <div id="controller">
+        <div id="controller-wrapper">
+            <div id="step-display">
+                Step: <span id="step-display-value">1
+            </span></div>
+            <div id="play-pause">
+              <a id="prev-step-button" class="controller-button">&#8678;</a>
+              <a id="play-pause-button" class="controller-button">&#9208;</a>
+              <a id="next-step-button" class="controller-button">&#8680;</a>
+            </div>
+
+
+        </div>
     </div>
     <div id="plates"></div>
 
@@ -297,32 +307,69 @@
     }
 
     var vocab_plate = source2plates["vocab-prediction-layer"];
-
     var output_data = {{output|safe}};
-
     var output_steps = createOutputFrame(output_data, source2plates);
 
 
 
+  var step = -1;
+  var max_steps = {{max_steps}};
 
 
-    var step = -1;
-    var max_steps = {{max_steps}};
+  var updater = function() {
+    
+    step = step + 1;
+    if (step >= max_steps) {
+      step = 0;
+    }
 
-    setInterval(function() {
-        step = step + 1;
-        if (step >= max_steps) {
-            step = 0;
-        }
-        document.getElementById("counter-wrapper").textContent = step;
-        for (var i=0; i < plate_objects.length; i++) {
-            updatePlate(plate_objects[i], plates_data[i], step);
-        }
-        updateOutputFrame(output_steps, step);
-        updateInputHighlight(output_data, plate_objects, step, vocab_plate);
-            }, 1000);
+    document.getElementById("step-display-value").textContent = step + 1;
+    for (var i=0; i < plate_objects.length; i++) {
+      updatePlate(plate_objects[i], plates_data[i], step);
+    }
+    updateOutputFrame(output_steps, step);
+    updateInputHighlight(output_data, plate_objects, step, vocab_plate);
+  };
+ 
+  var prev_updater = function() {
+    
+    step = step - 1;
+    if (step == -1) {
+      step = max_steps - 1;
+    }
+
+    document.getElementById("step-display-value").textContent = step + 1;
+    for (var i=0; i < plate_objects.length; i++) {
+      updatePlate(plate_objects[i], plates_data[i], step);
+    }
+    updateOutputFrame(output_steps, step);
+    updateInputHighlight(output_data, plate_objects, step, vocab_plate);
+  };
+           
+  var update_timer = setInterval(updater, 1000);
 
 
+  var play_pause_button = document.getElementById("play-pause-button");
+  play_pause_button.onclick = function() {
+      
+      if (update_timer != null) {
+        clearInterval(update_timer);
+        update_timer = null;
+        play_pause_button.innerHTML = "&#9654;";
+      } else {
+        updater();
+        update_timer = setInterval(updater, 1000);
+        play_pause_button.innerHTML = "&#9208;";
+      }
+      //alert(play_pause_button.textContent); 
+      return false;
+  };
+
+  var next_step_button = document.getElementById("next-step-button");
+  next_step_button.onclick = updater;
+
+  var prev_step_button = document.getElementById("prev-step-button");
+  prev_step_button.onclick = prev_updater;
 
 </script>
 

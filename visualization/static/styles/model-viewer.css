@@ -1,10 +1,4 @@
-#controller-wrapper {
-    position: fixed;
-    border: 1px solid black;
-    bottom: 0;
-    left: 0;
-    width: 20%;
-}
+
 
 
 
@@ -92,4 +86,40 @@
     float: left;
 }
 
+#controller {
+    position: fixed;
+    border: 1px solid black;
+    bottom: 10px;
+    left: 10px;
+    width: auto;
+    padding: 15px;
+    height: auto;
 
+}
+
+.controller-button {
+    display: inline-block;
+    font-size: 18pt;
+    cursor: pointer; 
+    width: 25px; 
+    text-align: center;
+  -webkit-touch-callout: none; /* iOS Safari */
+    -webkit-user-select: none; /* Safari */
+     -khtml-user-select: none; /* Konqueror HTML */
+       -moz-user-select: none; /* Firefox */
+        -ms-user-select: none; /* Internet Explorer/Edge */
+            user-select: none; /* Non-prefixed version, currently
+                                  supported by Chrome and Opera */
+}
+
+#step-display {
+    display: inline-block;
+    font-size: 18pt;
+    width: 100px;
+    border: 1px solid black;
+}
+
+#play-pause {
+    display: inline-block;
+    border: 1px solid black;
+}
