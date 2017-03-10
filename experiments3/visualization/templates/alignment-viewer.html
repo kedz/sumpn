@@ -1,0 +1,200 @@
+<!doctype html>
+<head>
+    <title>Lemma Gen Visualizer</title>
+</head>
+
+<style>
+
+.doc-token {
+    margin-left: 5px;
+    margin-right: 5px;
+    font-size: 8pt;
+}
+
+#doc-tokens-wrapper {
+    width: 100%;
+    height: auto;
+    margin: 0 0 25px 0;
+}
+.doc-tokens {
+    height: auto;
+    width: 90%;
+    margin: 0 0 20px 0;
+}
+
+.sent-spacer {
+    width: 10px;
+    margin-left:5px;
+    margin-right:5px;
+    background-color: white;
+    opacity: 1;
+    font-color: black;
+}
+
+#highlights-wrapper {
+    width: 100%;
+}
+.highlight-wrapper {
+    width: 90%;
+    border: solid black 2px;
+    margin: 0 0 25px 0;
+}
+
+</style>
+
+<body>
+<div id="outer">
+
+    <div id="doc-tokens-wrapper">
+        <div class="doc-tokens">
+        {% set tokid = [0] %}
+        {% for sent in doc_tokens %}
+        <span class="sent-spacer">{{loop.index0}}</span>
+            {% for token in sent %}
+                <span class="doc-token" id="doc-token-{{tokid[0]}}"> 
+                    {{token}}<sub>{{tokid[0]}}</sub>
+                    {% if tokid.append(tokid.pop() + 1) %}{% endif %}
+                </span>
+            {% endfor %}
+        {% endfor %}
+    </div>
+    </div>
+
+    <div id="highlights-wrapper">
+        {% for highlight in highlights %}
+        {% set rowloop = loop %}
+        <div class="highlight-wrapper" id="highlight-wrapper-{{loop.index0}}"> 
+            {% for token in highlight %}
+            <span id="highlight-token-{{rowloop.index0}}-{{loop.index0}}">{{ token }}<sub>{{alignments[rowloop.index0][loop.index0]}}</sub></span>
+            {% endfor %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+
+    var activeHL = null;
+
+function getOffset( el ) {
+    var rect = el.getBoundingClientRect();
+    return {
+        left: rect.left + window.pageXOffset,
+        top: rect.top + window.pageYOffset,
+        width: rect.width || el.offsetWidth,
+        height: rect.height || el.offsetHeight
+    };
+}
+
+function connect(div1, div2, color, thickness) { // draw a line connecting elements
+    var off1 = getOffset(div1);
+    var off2 = getOffset(div2);
+    // bottom right
+    var x1 = off1.left + off1.width;
+    var y1 = off1.top + off1.height;
+    // top right
+    var x2 = off2.left + off2.width / 2;
+    var y2 = off2.top;
+    // distance
+    var length = Math.sqrt(((x2-x1) * (x2-x1)) + ((y2-y1) * (y2-y1)));
+    // center
+    var cx = ((x1 + x2) / 2) - (length / 2);
+    var cy = ((y1 + y2) / 2) - (thickness / 2);
+    // angle
+    var angle = Math.atan2((y1-y2),(x1-x2))*(180/Math.PI);
+    // make hr
+    var htmlLine = "<div class='line' style='padding:0px; margin:0px; height:" + thickness + "px; background-color:" + color + "; line-height:1px; position:absolute; left:" + cx + "px; top:" + cy + "px; width:" + length + "px; -moz-transform:rotate(" + angle + "deg); -webkit-transform:rotate(" + angle + "deg); -o-transform:rotate(" + angle + "deg); -ms-transform:rotate(" + angle + "deg); transform:rotate(" + angle + "deg);' />";
+    //
+    // alert(htmlLine);
+    var elemDiv = document.createElement('div');
+    elemDiv.style.cssText ="padding:0px; margin:0px; height:" + thickness + "px; background-color:" + color + "; line-height:1px; position:absolute; left:" + cx + "px; top:" + cy + "px; width:" + length + "px; -moz-transform:rotate(" + angle + "deg); -webkit-transform:rotate(" + angle + "deg); -o-transform:rotate(" + angle + "deg); -ms-transform:rotate(" + angle + "deg); transform:rotate(" + angle + "deg);";
+    //document.body.innerHTML += htmlLine;
+    elemDiv.className = "line";
+    document.body.appendChild(elemDiv);
+}
+
+
+    var alignments = {{alignments_json|safe}};
+    var backbones = {{backbone_ids|safe}};
+    
+    for (var i=0; i < alignments.length; i++) {
+        for (var j=0; j < alignments[i].length; j++) {
+            var a = alignments[i][j];
+            if (a >= 0) {
+               var src = document.getElementById("doc-token-" + a)
+               src.style.background="green";
+
+            }
+        };
+    };
+
+    var elements = document.getElementsByClassName("highlight-wrapper");
+
+    for (var i=0; i < elements.length; i++) {
+        var e = elements[i];
+        e.hl_id = i
+        e.onclick = function () {
+            if (activeHL != this.getAttribute("id")) {
+        
+                if (activeHL != null) {
+                    document.getElementById(
+                        activeHL).style.border = "solid black 2px";
+
+                    var lines = document.getElementsByClassName("line");
+                    while(lines[0]) {
+                        lines[0].parentNode.removeChild(lines[0]);
+                    };
+                };
+
+                this.style.border = 'solid green 2px';
+                activeHL = this.getAttribute("id");
+                var id = parseInt(this.getAttribute("id").split(/\-/g)[2])
+               
+
+
+                for (var h=0; h < alignments.length; h++) {
+                    if (h != id) {
+                    document.getElementById(
+                        "highlight-wrapper-"+h).style.opacity=.5;
+                    } else {
+                        this.style.opacity=1;
+                    }
+                };
+
+                var doc_tokens = document.getElementsByClassName("doc-token");
+                for (var d=0; d < doc_tokens.length; d++) {
+                    doc_tokens[d].style.opacity=.2;
+                    if (doc_tokens[d].style.background == "red") {
+                        doc_tokens[d].style.background = "white";
+                    }
+
+                };                
+
+                var backbone = backbones[id]
+                for (var b=0; b < backbone.length; b++) {
+                    var a = document.getElementById("doc-token-" + backbone[b])
+                    if (a.style.background != "green") {
+                        a.style.background = "red";
+                    }
+                }
+                
+                for (var j=0; j < alignments[id].length; j++) {
+                    var a = alignments[id][j];
+                    if (a >= 0) {
+                       var src = document.getElementById("doc-token-" + a);
+                       var tgt = document.getElementById(
+                           "highlight-token-"+id+"-"+j);
+                       connect(src, tgt, "black", 1);
+                       src.style.opacity = 1;
+
+                    };
+                };
+
+
+            }
+        };
+    }
+    
+</script>
+
+</body>
